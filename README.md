@@ -1,6 +1,6 @@
 # proxmox-zfs-postinstall-v2
 
-This script merges proxmox-zfs-postinstall-v2 and proxmox-autosnap (https://github.com/apprell/proxmox-autosnap)
+This script merges proxmox-zfs-postinstall (https://github.com/bashclub/proxmox-zfs-postinstall) and proxmox-autosnap (https://github.com/apprell/proxmox-autosnap)
 
 ## proxmox-zfs-postinstall
 
