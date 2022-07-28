@@ -9,7 +9,7 @@ Following settings are made:
 - Disable `pve-enterprise` repo
 - Add `pve-no-subscription` repo
 - Upgrade system to latest version
-- Install basic tools: `sudo vim ifupdown2 net-tools dnsutils ethtool git curl unzip screen iftop lshw smartmontools nvme-cli lsscsi sysstat zfs-auto-snapshot htop mc rpl`
+- Install basic tools: `sudo vim ifupdown2 net-tools dnsutils ethtool git etckeeper curl unzip screen iftop lshw smartmontools nvme-cli lsscsi sysstat htop mc rpl`
 - Configure snapshot retention for ZFS with `proxmox-autosnap` non-interactively
 - `zfs_arc_[min|max]` will be calculated by size sum of all zpools in 512 MB steps
 - Configure `vm.swappiness` interactively
