@@ -3,7 +3,7 @@
 ###### CONFIG SECTION ######
 
 # Define basic tools to install
-TOOLS="sudo vim ifupdown2 libpve-network-perl net-tools dnsutils ethtool git curl unzip screen iftop lshw smartmontools nvme-cli lsscsi sysstat htop mc rpl lsb-release"
+TOOLS="sudo vim ifupdown2 libpve-network-perl net-tools dnsutils ethtool git etckeeper curl unzip screen iftop lshw smartmontools nvme-cli lsscsi sysstat htop mc rpl lsb-release"
 
 #### L1ARC SIZE CONFIGURATION ####
 
