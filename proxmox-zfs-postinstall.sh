@@ -3,31 +3,7 @@
 ###### CONFIG SECTION ######
 
 # Define basic tools to install
-TOOLS="sudo vim ifupdown2 libpve-network-perl net-tools dnsutils ethtool git curl unzip screen iftop lshw smartmontools nvme-cli lsscsi sysstat zfs-auto-snapshot htop mc rpl lsb-release"
-
-#### PVE CONF BACKUP CONFIGURATION ####
-
-# Define target dataset for backup of /etc
-# IMPORTANT NOTE: Don't type in the leading /, this will be set where needed
-PVE_CONF_BACKUP_TARGET=rpool/pveconf
-
-# Define timer for your backup cronjob (default: every 15 minutes fron 3 through 59)
-PVE_CONF_BACKUP_CRON_TIMER="3,18,33,48 * * * *"
-
-# Get Debian version info
-source /etc/os-release
-
-###### SYSTEM INFO AND INTERACTIVE CONFIGURATION SECTION ######
-
-ROUND_FACTOR=512
-
-roundup(){
-    echo $(((($1 + $ROUND_FACTOR) / $ROUND_FACTOR) * $ROUND_FACTOR))
-}
-
-roundoff(){
-    echo $((($1 / $ROUND_FACTOR) * $ROUND_FACTOR))
-}
+TOOLS="sudo vim ifupdown2 libpve-network-perl net-tools dnsutils ethtool git curl unzip screen iftop lshw smartmontools nvme-cli lsscsi sysstat htop mc rpl lsb-release"
 
 #### L1ARC SIZE CONFIGURATION ####
 
@@ -107,35 +83,6 @@ else
     echo "No input - swappiness unchanged at '$SWAPPINESS %'."
 fi
 
-#### ZFS AUTO SNAPSHOT CONFIGURATION ####
-
-# get information about zfs-auto-snapshot and ask for snapshot retention
-declare -A auto_snap_keep=( ["frequent"]="8" ["hourly"]="48" ["daily"]="31" ["weekly"]="8" ["monthly"]="3" )
-dpkg -l zfs-auto-snapshot > /dev/null
-
-if [ $? -eq 0 ]; then
-    echo "'zfs-auto-snapshot' already installed. Reading config..."
-    for interval in "${!auto_snap_keep[@]}"; do
-        if [[ "$interval" == "frequent" ]]; then
-            auto_snap_keep[$interval]=$(cat /etc/cron.d/zfs-auto-snapshot | grep keep | cut -d' ' -f19 | cut -d '=' -f2)
-        else
-            auto_snap_keep[$interval]=$(cat /etc/cron.$interval/zfs-auto-snapshot | grep keep | cut -d' ' -f6 | cut -d'=' -f2)
-        fi
-    done
-else
-    echo "'zfs-auto-snapshot' not installed yet, using script defaults..."
-fi
-echo -e "######## CONFIGURE ZFS AUTO SNAPSHOT ########\n"
-for interval in "${!auto_snap_keep[@]}"; do
-    read -p "Please set how many $interval snapshots to keep (current: keep=${auto_snap_keep[$interval]})" user_input
-    if echo "$user_input" | grep -qE '^[0-9]+$'; then
-        echo "Changing $interval from ${auto_snap_keep[$interval]} to $user_input"
-        auto_snap_keep[$interval]=$user_input
-    else
-        echo "No input - $interval unchanged at ${auto_snap_keep[$interval]}."
-    fi
-done
-
 #### CHECKMK AGENT CONFIGURATION ####
 read -p "Do you want to install checkmk agent of this machine? [y/N] " install_checkmk
 if [[ "$install_checkmk" == "y" ]]; then
@@ -190,36 +137,9 @@ DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq dist-upgrade 
 echo "Installing toolset - Depending on your version this could take a while..."
 DEBIAN_FRONTEND=noninteractive DEBIAN_PRIORITY=critical apt -y -qq install $TOOLS > /dev/null 2>&1
 
-# configure zfs-auto-snapshot
-for interval in "${!auto_snap_keep[@]}"; do
-    echo "Setting zfs-auto-snapshot retention: $interval = ${auto_snap_keep[$interval]}"
-    if [[ "$interval" == "frequent" ]]; then
-        CURRENT=$(cat /etc/cron.d/zfs-auto-snapshot | grep keep | cut -d' ' -f19 | cut -d '=' -f2)
-        if [[ "${auto_snap_keep[$interval]}" != "$CURRENT" ]]; then
-            rpl "keep=$CURRENT" "keep=${auto_snap_keep[$interval]}" /etc/cron.d/zfs-auto-snapshot > /dev/null 2>&1
-        fi
-    else
-        CURRENT=$(cat /etc/cron.$interval/zfs-auto-snapshot | grep keep | cut -d' ' -f6 | cut -d'=' -f2)
-        if [[ "${auto_snap_keep[$interval]}" != "$CURRENT" ]]; then
-            rpl "keep=$CURRENT" "keep=${auto_snap_keep[$interval]}" /etc/cron.$interval/zfs-auto-snapshot > /dev/null 2>&1
-        fi
-    fi
-done
-
 echo "Configuring swappiness"
 echo "vm.swappiness=$SWAPPINESS" > /etc/sysctl.d/swappiness.conf
 sysctl -w vm.swappiness=$SWAPPINESS
-
-echo "Configuring pve-conf-backup"
-# create backup jobs of /etc
-zfs list $PVE_CONF_BACKUP_TARGET > /dev/null 2>&1
-if [ $? -ne 0 ]; then
-    zfs create $PVE_CONF_BACKUP_TARGET
-fi
-
-if [[ "$(df -h -t zfs | grep /$ | cut -d ' ' -f1)" == "rpool/ROOT/pve-1" ]] ; then
-  echo "$PVE_CONF_BACKUP_CRON_TIMER root rsync -va --delete /etc /$PVE_CONF_BACKUP_TARGET > /$PVE_CONF_BACKUP_TARGET/pve-conf-backup.log" > /etc/cron.d/pve-conf-backup
-fi
 
 ZFS_ARC_MIN_BYTES=$((ZFS_ARC_MIN_MEGABYTES * 1024 *1024))
 ZFS_ARC_MAX_BYTES=$((ZFS_ARC_MAX_MEGABYTES * 1024 *1024))
@@ -301,5 +221,12 @@ fi
 
 echo "Updating initramfs - This will take some time..."
 update-initramfs -u -k all > /dev/null 2>&1
+
+### Proxmox autosnap https://github.com/apprell/proxmox-autosnap
+echo "Setting up Proxmox Autosnap..."
+git clone https://github.com/apprell/proxmox-autosnap.git /root/proxmox-autosnap
+ln -s /root/proxmox-autosnap/proxmox-autosnap.py /usr/local/sbin/proxmox-autosnap.py
+ln -s /root/proxmox-autosnap/autosnap /etc/cron.d/autosnap
+chmod +x /root/proxmox-autosnap/proxmox-autosnap.py
 
 echo "Proxmox postinstallation finished!"
